@@ -24,31 +24,36 @@ function sanitizeLinkAndStyleElements(node: Element) {
 	}
 }
 
-export function uponSanitizeElement(node: Element) {
-	if (!node.tagName) {
-		return;
-	}
+export function uponSanitizeElementFactory(theme: 'dark' | 'light') {
+	return (node: Element) => {
+		if (!node.tagName) {
+			return;
+		}
 
-	if (Reflect.has(node, 'removeAttribute')) {
-		// Remove all inline styles
-		node.removeAttribute('style');
-	}
+		if (Reflect.has(node, 'removeAttribute')) {
+			// Remove all inline styles
+			node.removeAttribute('style');
+		}
 
-	switch (node.tagName.toLowerCase()) {
-		case 'img':
-			setImageAttributes(node);
-			break;
-		case 'a':
-			setAnchorAttributes(node);
-			break;
-		case 'code':
-			highlightCodeElement(node);
-			break;
-		case 'link':
-			sanitizeLinkAndStyleElements(node);
-			break;
-		case 'style':
-			sanitizeLinkAndStyleElements(node);
-			break;
-	}
+		switch (node.tagName.toLowerCase()) {
+			case 'body':
+				node.setAttribute('data-theme', theme);
+				break;
+			case 'img':
+				setImageAttributes(node);
+				break;
+			case 'a':
+				setAnchorAttributes(node);
+				break;
+			case 'code':
+				highlightCodeElement(node);
+				break;
+			case 'link':
+				sanitizeLinkAndStyleElements(node);
+				break;
+			case 'style':
+				sanitizeLinkAndStyleElements(node);
+				break;
+		}
+	};
 }

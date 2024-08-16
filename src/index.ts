@@ -47,7 +47,7 @@ app.get('/', (_, res) => {
 });
 
 app.get('/markdown', async (req, res) => {
-	const { markdown: markdownQuery, file: fileQuery, type: typeQuery } = req.query;
+	const { markdown: markdownQuery, file: fileQuery, type: typeQuery, theme } = req.query;
 
 	console.log(`[Received request]`, {
 		markdownQuery,
@@ -113,7 +113,19 @@ app.get('/markdown', async (req, res) => {
 		}
 	}
 
-	const html = await parseMarkdown(content as string);
+	if (theme && theme !== 'light' && theme !== 'dark') {
+		res
+			.status(400)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'Invalid theme provided, only "light" and "dark" are supported',
+			});
+		return;
+	}
+
+	const html = await parseMarkdown(content as string, theme as 'dark' | 'light');
 	if (typeQuery === 'json') {
 		res
 			.status(200)
@@ -136,7 +148,7 @@ app.get('/markdown', async (req, res) => {
 
 app.get('/markdown/:id', async (req, res) => {
 	const { id } = req.params;
-	const format = req.query.format;
+	const { format } = req.query;
 
 	const cached = cache.get(id);
 	if (!cached) {
@@ -173,7 +185,7 @@ app.get('/markdown/:id', async (req, res) => {
 });
 
 app.post('/markdown', async (req, res) => {
-	const { markdown, file } = req.body;
+	const { markdown, file, theme } = req.body;
 
 	if (cache.size > 5_000) {
 		res
@@ -243,8 +255,20 @@ app.post('/markdown', async (req, res) => {
 		}
 	}
 
+	if (theme && theme !== 'light' && theme !== 'dark') {
+		res
+			.status(400)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'Invalid theme provided, only "light" and "dark" are supported',
+			});
+		return;
+	}
+
 	const id = randomUUID();
-	const html = await parseMarkdown(content as string);
+	const html = await parseMarkdown(content as string, theme as 'dark' | 'light');
 
 	cache.set(id, {
 		id,
