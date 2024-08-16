@@ -36,9 +36,14 @@ app.use(helmet());
 app.use(express.json());
 
 app.get('/', (_, res) => {
-	res.status(200).send({
-		status: 'ready',
-	});
+	res
+		.status(200)
+		.header({
+			'Content-Type': 'application/json',
+		})
+		.send({
+			status: 'ready',
+		});
 });
 
 app.get('/markdown', async (req, res) => {
@@ -53,16 +58,26 @@ app.get('/markdown', async (req, res) => {
 	});
 
 	if (!markdownQuery && !fileQuery) {
-		res.status(400).send({
-			error: 'No markdown content or file provided',
-		});
+		res
+			.status(400)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'No markdown content or file provided',
+			});
 		return;
 	}
 
 	if (markdownQuery && fileQuery) {
-		res.status(400).send({
-			error: 'Both markdown content and file provided, please provide only one',
-		});
+		res
+			.status(400)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'Both markdown content and file provided, please provide only one',
+			});
 		return;
 	}
 
@@ -72,18 +87,28 @@ app.get('/markdown', async (req, res) => {
 		const response = await fetch(decodeURI(fileQuery as string));
 
 		if (!response.ok) {
-			res.status(400).send({
-				error: `Failed to fetch file (${response.status})`,
-			});
+			res
+				.status(400)
+				.header({
+					'Content-Type': 'application/json',
+				})
+				.send({
+					error: `Failed to fetch file (${response.status})`,
+				});
 			return;
 		}
 
 		content = await response.text();
 
 		if (!content) {
-			res.status(400).send({
-				error: 'Failed to read file content or file is empty',
-			});
+			res
+				.status(400)
+				.header({
+					'Content-Type': 'application/json',
+				})
+				.send({
+					error: 'Failed to read file content or file is empty',
+				});
 			return;
 		}
 	}
@@ -115,44 +140,74 @@ app.get('/markdown/:id', async (req, res) => {
 
 	const cached = cache.get(id);
 	if (!cached) {
-		res.status(404).send({
-			error: 'Not found',
-		});
+		res
+			.status(404)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'Not found',
+			});
 		return;
 	}
 
-	if (format === 'html') {
-		res.status(200).send(cached.html);
+	if (format === 'json') {
+		res
+			.status(200)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				id: cached.id,
+				html: cached.html,
+			});
 		return;
 	}
 
-	res.status(200).send({
-		id: cached.id,
-		html: cached.html,
-	});
+	res
+		.status(200)
+		.header({
+			'Content-Type': 'text/html',
+		})
+		.send(cached.html);
 });
 
 app.post('/markdown', async (req, res) => {
 	const { markdown, file } = req.body;
 
 	if (cache.size > 5_000) {
-		res.status(429).send({
-			error: 'Cache limit reached, please try again later',
-		});
+		res
+			.status(429)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'Cache limit reached, please try again later',
+			});
 		return;
 	}
 
 	if (markdown && file) {
-		res.status(400).send({
-			error: 'Both markdown content and file provided, please provide only one',
-		});
+		res
+			.status(400)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'Both markdown content and file provided, please provide only one',
+			});
 		return;
 	}
 
 	if (!markdown && !file) {
-		res.status(400).send({
-			error: 'No markdown content or file provided',
-		});
+		res
+			.status(400)
+			.header({
+				'Content-Type': 'application/json',
+			})
+			.send({
+				error: 'No markdown content or file provided',
+			});
 		return;
 	}
 
@@ -162,18 +217,28 @@ app.post('/markdown', async (req, res) => {
 		const response = await fetch(decodeURI(file as string));
 
 		if (!response.ok) {
-			res.status(400).send({
-				error: `Failed to fetch file (${response.status})`,
-			});
+			res
+				.status(400)
+				.header({
+					'Content-Type': 'application/json',
+				})
+				.send({
+					error: `Failed to fetch file (${response.status})`,
+				});
 			return;
 		}
 
 		content = await response.text();
 
 		if (!content) {
-			res.status(400).send({
-				error: 'Failed to read file content or file is empty',
-			});
+			res
+				.status(400)
+				.header({
+					'Content-Type': 'application/json',
+				})
+				.send({
+					error: 'Failed to read file content or file is empty',
+				});
 			return;
 		}
 	}
@@ -187,10 +252,15 @@ app.post('/markdown', async (req, res) => {
 		html,
 	});
 
-	res.status(200).send({
-		id,
-		html,
-	});
+	res
+		.status(200)
+		.header({
+			'Content-Type': 'application/json',
+		})
+		.send({
+			id,
+			html,
+		});
 });
 
 app.listen(process.env.PORT ?? 3_000, () => {
