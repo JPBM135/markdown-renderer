@@ -1,3 +1,4 @@
+import process from 'node:process';
 import hljs from 'highlight.js';
 
 function setImageAttributes(node: Element) {
@@ -17,10 +18,25 @@ function highlightCodeElement(node: Element) {
 	hljs.highlightElement(node as HTMLElement);
 }
 
-function sanitizeLinkHeadOnlyElements(node: Element) {
+function sanitizeHeadOnlyElements(node: Element) {
 	const areInsideHead = node.closest('head');
 	if (!areInsideHead) {
 		node.remove();
+		return;
+	}
+
+	if (process.env.NODE_ENV === 'development') {
+		return;
+	}
+
+	const src = node.getAttribute('src');
+	if (src) {
+		node.setAttribute('src', '/render' + src);
+	}
+
+	const href = node.getAttribute('href');
+	if (href) {
+		node.setAttribute('href', '/render' + href);
 	}
 }
 
@@ -49,13 +65,13 @@ export function uponSanitizeElementFactory(theme: 'dark' | 'light') {
 				highlightCodeElement(node);
 				break;
 			case 'link':
-				sanitizeLinkHeadOnlyElements(node);
+				sanitizeHeadOnlyElements(node);
 				break;
 			case 'style':
-				sanitizeLinkHeadOnlyElements(node);
+				sanitizeHeadOnlyElements(node);
 				break;
 			case 'script':
-				sanitizeLinkHeadOnlyElements(node);
+				sanitizeHeadOnlyElements(node);
 				break;
 		}
 	};
