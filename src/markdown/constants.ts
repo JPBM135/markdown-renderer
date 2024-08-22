@@ -27,7 +27,7 @@ export const MARKDOWN_ALERT_PLUGIN_OPTIONS: Options = {
 
 export const ADDITIONAL_SUPPORTED_ATTRIBUTES = ['target', 'rel', 'loading'];
 
-export const HEAD_ONLY_ALLOWED_TAGS = ['link', 'style', 'script'];
+export const HEAD_ONLY_ALLOWED_TAGS = ['link', 'style', 'script', 'base'];
 
 export const STRICTLY_ALLOWED_TAGS = [
 	'svg',
