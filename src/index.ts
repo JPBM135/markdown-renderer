@@ -1,39 +1,42 @@
-import { randomUUID } from 'node:crypto';
 import process from 'node:process';
+import { URL } from 'node:url';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
-import cron from 'node-cron';
-import { parseMarkdown } from './markdown/index.js';
+import { handleGetMarkdown } from './routes/getMarkdown.js';
+import { getMarkdownWithId } from './routes/getMarkdownWithId.js';
+import { postMarkdown } from './routes/postMarkdown.js';
+import { useNonce } from './utils/useNonce.js';
 
 const app = express();
 
-const cache = new Map<
-	string,
-	{
-		createdAt: number;
-		html: string;
-		id: string;
-	}
->();
-
-const SIX_HOURS_IN_MS = 1_000 * 60 * 60 * 6;
-
-cron.schedule('0 * * * *', () => {
-	console.log(`[Cron] Running cache cleanup`);
-	const now = Date.now();
-
-	for (const [id, { createdAt }] of cache) {
-		if (now - createdAt > SIX_HOURS_IN_MS) {
-			console.log(`[Cron] Deleting cache entry with ID: ${id}`);
-			cache.delete(id);
-		}
-	}
-});
-
 app.use(cors());
-app.use(helmet());
+app.use(useNonce());
+app.use(
+	helmet({
+		contentSecurityPolicy: {
+			directives: {
+				defaultSrc: ["'self'"],
+				scriptSrc: [
+					"'self'",
+					// @ts-expect-error: Property 'nonce' does not exist on type 'ServerResponse' but exists on type 'Response'.
+					(_, res) => `'nonce-${res.locals.nonce}'`,
+				],
+				scriptSrcElem: [
+					"'self'",
+					'https://cdn.jsdelivr.net/npm/mermaid@10/',
+					// @ts-expect-error: Property 'nonce' does not exist on type 'ServerResponse' but exists on type 'Response'.
+					(_, res) => `'nonce-${res.locals.nonce}'`,
+				],
+				imgSrc: ['*'],
+			},
+		},
+	}),
+);
 app.use(express.json());
+
+const staticPath = new URL('../public', import.meta.url).pathname;
+app.use('/public', express.static(staticPath));
 
 app.get('/', (_, res) => {
 	res
@@ -46,246 +49,11 @@ app.get('/', (_, res) => {
 		});
 });
 
-app.get('/markdown', async (req, res) => {
-	const { markdown: markdownQuery, file: fileQuery, type: typeQuery, theme } = req.query;
+app.get('/markdown', handleGetMarkdown);
 
-	console.log(`[Received request]`, {
-		markdownQuery,
-		fileQuery,
-		typeQuery,
-		ip: req.ip,
-		userAgent: req.get('User-Agent'),
-	});
+app.get('/markdown/:id', getMarkdownWithId);
 
-	if (!markdownQuery && !fileQuery) {
-		res
-			.status(400)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'No markdown content or file provided',
-			});
-		return;
-	}
-
-	if (markdownQuery && fileQuery) {
-		res
-			.status(400)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'Both markdown content and file provided, please provide only one',
-			});
-		return;
-	}
-
-	let content = markdownQuery;
-
-	if (fileQuery) {
-		const response = await fetch(decodeURI(fileQuery as string));
-
-		if (!response.ok) {
-			res
-				.status(400)
-				.header({
-					'Content-Type': 'application/json',
-				})
-				.send({
-					error: `Failed to fetch file (${response.status})`,
-				});
-			return;
-		}
-
-		content = await response.text();
-
-		if (!content) {
-			res
-				.status(400)
-				.header({
-					'Content-Type': 'application/json',
-				})
-				.send({
-					error: 'Failed to read file content or file is empty',
-				});
-			return;
-		}
-	}
-
-	if (theme && theme !== 'light' && theme !== 'dark') {
-		res
-			.status(400)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'Invalid theme provided, only "light" and "dark" are supported',
-			});
-		return;
-	}
-
-	const html = await parseMarkdown(content as string, theme as 'dark' | 'light');
-	if (typeQuery === 'json') {
-		res
-			.status(200)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				html,
-			});
-		return;
-	}
-
-	res
-		.status(200)
-		.header({
-			'Content-Type': 'text/html',
-		})
-		.send(html);
-});
-
-app.get('/markdown/:id', async (req, res) => {
-	const { id } = req.params;
-	const { format } = req.query;
-
-	const cached = cache.get(id);
-	if (!cached) {
-		res
-			.status(404)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'Not found',
-			});
-		return;
-	}
-
-	if (format === 'json') {
-		res
-			.status(200)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				id: cached.id,
-				html: cached.html,
-			});
-		return;
-	}
-
-	res
-		.status(200)
-		.header({
-			'Content-Type': 'text/html',
-		})
-		.send(cached.html);
-});
-
-app.post('/markdown', async (req, res) => {
-	const { markdown, file, theme } = req.body;
-
-	if (cache.size > 5_000) {
-		res
-			.status(429)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'Cache limit reached, please try again later',
-			});
-		return;
-	}
-
-	if (markdown && file) {
-		res
-			.status(400)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'Both markdown content and file provided, please provide only one',
-			});
-		return;
-	}
-
-	if (!markdown && !file) {
-		res
-			.status(400)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'No markdown content or file provided',
-			});
-		return;
-	}
-
-	let content = markdown ?? '';
-
-	if (file) {
-		const response = await fetch(decodeURI(file as string));
-
-		if (!response.ok) {
-			res
-				.status(400)
-				.header({
-					'Content-Type': 'application/json',
-				})
-				.send({
-					error: `Failed to fetch file (${response.status})`,
-				});
-			return;
-		}
-
-		content = await response.text();
-
-		if (!content) {
-			res
-				.status(400)
-				.header({
-					'Content-Type': 'application/json',
-				})
-				.send({
-					error: 'Failed to read file content or file is empty',
-				});
-			return;
-		}
-	}
-
-	if (theme && theme !== 'light' && theme !== 'dark') {
-		res
-			.status(400)
-			.header({
-				'Content-Type': 'application/json',
-			})
-			.send({
-				error: 'Invalid theme provided, only "light" and "dark" are supported',
-			});
-		return;
-	}
-
-	const id = randomUUID();
-	const html = await parseMarkdown(content as string, theme as 'dark' | 'light');
-
-	cache.set(id, {
-		id,
-		createdAt: Date.now(),
-		html,
-	});
-
-	res
-		.status(200)
-		.header({
-			'Content-Type': 'application/json',
-		})
-		.send({
-			id,
-			html,
-		});
-});
+app.post('/markdown', postMarkdown);
 
 app.listen(process.env.PORT ?? 3_000, () => {
 	console.log(`Server is running on port ${process.env.PORT ?? 3_000}`);

@@ -3,23 +3,24 @@ import { minify } from 'html-minifier';
 import { JSDOM } from 'jsdom';
 import { Marked } from 'marked';
 import markedAlert from 'marked-alert';
+import { markedDiagrams } from '../diagram/renderer.js';
 import {
 	ADDITIONAL_SUPPORTED_ATTRIBUTES,
 	HEAD_ONLY_ALLOWED_TAGS,
 	MARKDOWN_ALERT_PLUGIN_OPTIONS,
 	STRICTLY_ALLOWED_TAGS,
 } from './constants.js';
+import { HEAD_STYLES } from './head.js';
 import { uponSanitizeElementFactory } from './hooks.js';
-import { HEAD_STYLES } from './styles.js';
 
-const markedInstance = new Marked().use(markedAlert(MARKDOWN_ALERT_PLUGIN_OPTIONS));
+const markedInstance = new Marked().use(markedAlert(MARKDOWN_ALERT_PLUGIN_OPTIONS), markedDiagrams());
 
-function mergeMarkdownHtmlWithHeadStyles(markdownHtml: string) {
+function mergeMarkdownHtmlWithHeadStyles(markdownHtml: string, nonce: string) {
 	return [
 		'<!DOCTYPE html>',
 		'<html>',
 		'<head>',
-		HEAD_STYLES,
+		HEAD_STYLES(nonce),
 		'</head>',
 		'<body>',
 		markdownHtml,
@@ -54,13 +55,13 @@ function minifyHtml(html: string) {
 	});
 }
 
-export async function parseMarkdown(markdown: string, theme: 'dark' | 'light' = 'light') {
+export async function parseMarkdown(markdown: string, nonce: string, theme: 'dark' | 'light' = 'light') {
 	const markdownHtml = await markedInstance.parse(markdown, {
 		gfm: true,
 		breaks: true,
 	});
 
-	const completeHtml = mergeMarkdownHtmlWithHeadStyles(markdownHtml);
+	const completeHtml = mergeMarkdownHtmlWithHeadStyles(markdownHtml, nonce);
 	const sanitizedHtml = sanitizeHtml(completeHtml, theme);
 	const minifiedHtml = minifyHtml(sanitizedHtml);
 	return minifiedHtml.trim();

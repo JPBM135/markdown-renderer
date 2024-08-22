@@ -17,7 +17,7 @@ function highlightCodeElement(node: Element) {
 	hljs.highlightElement(node as HTMLElement);
 }
 
-function sanitizeLinkAndStyleElements(node: Element) {
+function sanitizeLinkHeadOnlyElements(node: Element) {
 	const areInsideHead = node.closest('head');
 	if (!areInsideHead) {
 		node.remove();
@@ -49,10 +49,13 @@ export function uponSanitizeElementFactory(theme: 'dark' | 'light') {
 				highlightCodeElement(node);
 				break;
 			case 'link':
-				sanitizeLinkAndStyleElements(node);
+				sanitizeLinkHeadOnlyElements(node);
 				break;
 			case 'style':
-				sanitizeLinkAndStyleElements(node);
+				sanitizeLinkHeadOnlyElements(node);
+				break;
+			case 'script':
+				sanitizeLinkHeadOnlyElements(node);
 				break;
 		}
 	};

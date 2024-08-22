@@ -27,9 +27,23 @@ export const MARKDOWN_ALERT_PLUGIN_OPTIONS: Options = {
 
 export const ADDITIONAL_SUPPORTED_ATTRIBUTES = ['target', 'rel', 'loading'];
 
-export const HEAD_ONLY_ALLOWED_TAGS = ['link', 'style'];
+export const HEAD_ONLY_ALLOWED_TAGS = ['link', 'style', 'script'];
 
 export const STRICTLY_ALLOWED_TAGS = [
+	'svg',
+	'path',
+	'g',
+	'circle',
+	'ellipse',
+	'line',
+	'rect',
+	'polyline',
+	'polygon',
+	'text',
+	'tspan',
+	'textPath',
+	'linearGradient',
+	'radialGradient',
 	'span',
 	'cite',
 	'em',
